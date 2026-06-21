@@ -1,13 +1,18 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:http_parser/http_parser.dart';
+import 'api_constants.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final String currentName;
   final String currentEmail;
   final String currentPhone;
   final String currentAddress;
+  final String? profilePicUrl;
 
   const EditProfileScreen({
     super.key,
@@ -15,6 +20,7 @@ class EditProfileScreen extends StatefulWidget {
     required this.currentEmail,
     required this.currentPhone,
     required this.currentAddress,
+    this.profilePicUrl,
   });
 
   @override
@@ -27,6 +33,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController phoneController;
   late TextEditingController addressController;
   bool _isLoading = false;
+  File? _selectedImage;
 
   @override
   void initState() {
@@ -37,6 +44,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     addressController = TextEditingController(text: widget.currentAddress);
   }
 
+  Future<void> _pickImage() async {
+    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImage = File(pickedFile.path);
+      });
+    }
+  }
+
   Future<void> _updateProfile() async {
     setState(() => _isLoading = true);
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -44,22 +60,33 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     String? username = prefs.getString('username');
 
     try {
-      var response = await http.put(
-        Uri.parse('http://10.0.2.2:8000/api/update-profile/'),
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Token $token"
-        },
-        body: jsonEncode({
-          "username": username,
-          "full_name": nameController.text,
-          "email": emailController.text,
-          "phone": phoneController.text,
-          "address": addressController.text,
-        }),
-      );
+      var uri = Uri.parse('${ApiConstants.baseUrl}/update-profile/');
+      var request = http.MultipartRequest('PUT', uri);
+      request.headers.addAll({"Authorization": "Token $token"});
+
+      request.fields['username'] = username ?? '';
+      request.fields['full_name'] = nameController.text;
+      request.fields['email'] = emailController.text;
+      request.fields['phone'] = phoneController.text;
+      request.fields['address'] = addressController.text;
+
+      if (_selectedImage != null) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'profile_picture',
+          _selectedImage!.path,
+          contentType: MediaType('image', 'jpeg'),
+        ));
+      }
+
+      var response = await request.send();
 
       if (response.statusCode == 200) {
+        var respStr = await response.stream.bytesToString();
+        var data = jsonDecode(respStr);
+        await prefs.setString('full_name', nameController.text);
+        if (data['profile_picture'] != null) {
+          await prefs.setString('profile_picture', data['profile_picture']);
+        }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Changes Saved!')));
           Navigator.pop(context);
@@ -77,7 +104,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     Color g = const Color(0xFF0D6B58);
-    Color h = const Color(0xFFE2F3E8);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -95,18 +121,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const Spacer(),
                 ],
               ),
-              const CircleAvatar(
-                radius: 50,
-                backgroundColor: Color(0xFFE2F3E8),
-                child: Icon(Icons.person, size: 60, color: Colors.grey),
+              GestureDetector(
+                onTap: _pickImage,
+                child: Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: const Color(0xFFE2F3E8),
+                      backgroundImage: _selectedImage != null
+                          ? FileImage(_selectedImage!)
+                          : (widget.profilePicUrl != null ? NetworkImage('${ApiConstants.mediaUrl}${widget.profilePicUrl}') as ImageProvider : null),
+                      child: _selectedImage == null && widget.profilePicUrl == null ? const Icon(Icons.person, size: 60, color: Colors.grey) : null,
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(color: Color(0xFF0D6B58), shape: BoxShape.circle),
+                      child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 32),
               Container(
                 padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(24),
-                ),
+                decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(24)),
                 child: Column(
                   children: [
                     _f(Icons.person_outline, 'Full Name', nameController),
@@ -123,36 +162,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               _isLoading
                   ? CircularProgressIndicator(color: g)
                   : Column(
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _updateProfile,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: g,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 0,
-                      ),
-                      child: const Text('Save Changes', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _updateProfile,
+                            style: ElevatedButton.styleFrom(backgroundColor: g, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
+                            child: const Text('Save Changes', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade100, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
+                            child: const Text('Cancel', style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey.shade100,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 0,
-                      ),
-                      child: const Text('Cancel', style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                ],
-              ),
             ],
           ),
         ),
@@ -180,14 +209,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               filled: true,
               fillColor: Colors.white,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF0D6B58)),
-              ),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF0D6B58))),
             ),
           ),
         ),

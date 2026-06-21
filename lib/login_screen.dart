@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'api_constants.dart';
 import 'main_screen.dart';
 import 'signup_screen.dart';
 
@@ -31,7 +32,25 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  bool _validateInput() {
+    if (emailController.text.trim().isEmpty || !emailController.text.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid email address')),
+      );
+      return false;
+    }
+    if (passwordController.text.trim().length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password must be at least 6 characters long')),
+      );
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _login() async {
+    if (!_validateInput()) return;
+
     setState(() {
       _isLoading = true;
     });
@@ -39,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       String username = emailController.text.split('@')[0];
       var response = await http.post(
-        Uri.parse('http://10.0.2.2:8000/api/login/'),
+        Uri.parse('${ApiConstants.baseUrl}/login/'),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "username": username,
@@ -53,6 +72,8 @@ class _LoginScreenState extends State<LoginScreen> {
         await prefs.setString('token', data['token']);
         await prefs.setString('username', username);
         await prefs.setInt('points', data['points'] ?? 0);
+        await prefs.setBool('is_employee', data['is_employee'] ?? false);
+        await prefs.setBool('is_approved_employee', data['is_approved_employee'] ?? false);
 
         if (mounted) {
           Navigator.pushReplacement(
@@ -74,9 +95,11 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -92,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const SizedBox(height: 50),
               Text(
-                'Welcome Back',
+                'Welcome',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 32,
@@ -165,24 +188,24 @@ class _LoginScreenState extends State<LoginScreen> {
               _isLoading
                   ? Center(child: CircularProgressIndicator(color: darkGreen))
                   : ElevatedButton(
-                onPressed: _login,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: darkGreen,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  'Log in',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
+                      onPressed: _login,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: darkGreen,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Log in',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
               const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,

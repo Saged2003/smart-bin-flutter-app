@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'api_constants.dart';
 import 'scanner_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -41,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _fetchActivities() async {
     try {
       var response = await http.get(
-        Uri.parse('http://10.0.2.2:8000/api/activities/?username=$userName'),
+        Uri.parse('${ApiConstants.baseUrl}/activities/?username=$userName'),
       );
       if (response.statusCode == 200) {
         setState(() {
@@ -60,35 +61,30 @@ class _HomeScreenState extends State<HomeScreen> {
     return Icons.recycling;
   }
 
-  Future<void> _redeemPoints(String code) async {
+  Future<void> _scanQR(String code) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? token = prefs.getString('token');
+
     try {
       var response = await http.post(
-        Uri.parse('http://10.0.2.2:8000/api/redeem/'),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"username": userName, "code": code}),
+        Uri.parse('${ApiConstants.baseUrl}/user/scan-qr/'),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Token $token"
+        },
+        body: jsonEncode({"code": code}),
       );
 
       if (response.statusCode == 200) {
-        var data = jsonDecode(response.body);
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-        setState(() {
-          currentBalance = data['total_points'] ?? currentBalance;
-        });
-        await prefs.setInt('points', currentBalance);
-        await prefs.setDouble('weight', (data['total_weight'] ?? 0.0).toDouble());
-        await prefs.setInt('deposits', data['deposits'] ?? 0);
-
-        _fetchActivities();
-
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Success! Added ${data['added_points']} points')),
+            const SnackBar(content: Text('Scanned successfully! Bin is waiting.')),
           );
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invalid code or already used.')),
+            const SnackBar(content: Text('Invalid code or bin is busy.')),
           );
         }
       }
@@ -101,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _showRedeemDialog() {
+  void _showScanDialog() {
     showDialog(
       context: context,
       builder: (context) {
@@ -110,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
           content: TextField(
             controller: binCodeController,
             decoration: InputDecoration(
-              hintText: 'e.g. PLAST-55',
+              hintText: 'e.g. 1234-5678',
               filled: true,
               fillColor: lightGreen,
               border: OutlineInputBorder(
@@ -128,7 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: () {
                 Navigator.pop(context);
                 if (binCodeController.text.isNotEmpty) {
-                  _redeemPoints(binCodeController.text);
+                  _scanQR(binCodeController.text);
                   binCodeController.clear();
                 }
               },
@@ -179,11 +175,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
+                      onPressed: () async {
+                        final result = await Navigator.push(
                           context,
                           MaterialPageRoute(builder: (context) => const ScannerScreen()),
                         );
+                        if (result != null && result.toString().isNotEmpty) {
+                          _scanQR(result.toString());
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: accentGreen,
@@ -206,7 +205,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _showRedeemDialog,
+                      onPressed: _showScanDialog,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: darkGreen,
                         padding: const EdgeInsets.symmetric(vertical: 18),

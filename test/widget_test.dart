@@ -5,7 +5,7 @@ import 'package:smart_bin_eng/main.dart';
 void main() {
   testWidgets('Login screen loads', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp(l: false));
-    expect(find.text('Welcome Back'), findsOneWidget);
+    expect(find.text('Welcome'), findsOneWidget);
     expect(find.byType(TextField), findsNWidgets(2));
   });
 }

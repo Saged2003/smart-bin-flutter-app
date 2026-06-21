@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'api_constants.dart';
 
 class ActivityScreen extends StatefulWidget {
   const ActivityScreen({super.key});
@@ -34,7 +35,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     });
 
     try {
-      var response = await http.get(Uri.parse('http://10.0.2.2:8000/api/activities/?username=$userName'));
+      var response = await http.get(Uri.parse('${ApiConstants.baseUrl}/activities/?username=$userName'));
       if (response.statusCode == 200) {
         setState(() {
           activities = jsonDecode(response.body);
@@ -50,12 +51,12 @@ class _ActivityScreenState extends State<ActivityScreen> {
 
   String _getImage(String type) {
     String t = type.toLowerCase();
-    if(t.contains('plastic')) return 'lib/assets/images/Plastic Bottle.png';
-    if(t.contains('aluminum')) return 'lib/assets/images/Aluminum Can.png';
-    if(t.contains('glass')) return 'lib/assets/images/Glass Bottle.png';
-    if(t.contains('cardboard')) return 'lib/assets/images/Cardboard Box.png';
-    if(t.contains('newspaper')) return 'lib/assets/images/Newspaper.png';
-    return 'lib/assets/images/Plastic Bottle.png';
+    if(t.contains('plastic')) return 'lib/assets/images/plastic_bottle.png';
+    if(t.contains('aluminum')) return 'lib/assets/images/aluminum_can.png';
+    if(t.contains('glass')) return 'lib/assets/images/glass_bottle.png';
+    if(t.contains('cardboard')) return 'lib/assets/images/cardboard_box.png';
+    if(t.contains('newspaper')) return 'lib/assets/images/newspaper.png';
+    return 'lib/assets/images/plastic_bottle.png';
   }
 
   @override

@@ -2,18 +2,20 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'api_constants.dart';
 import 'scanner_screen.dart';
 
 class HomeTab extends StatefulWidget {
-  const HomeTab({super.key});
+  final VoidCallback onViewAll;
+  const HomeTab({super.key, required this.onViewAll});
 
   @override
   State<HomeTab> createState() => _HomeTabState();
 }
 
 class _HomeTabState extends State<HomeTab> {
-  final Color darkGreen = const Color(0xFF006958);
-  final Color lightGreen = const Color(0xFFD4F0DA);
+  final Color darkGreen = const Color(0xFF0D6B58);
+  final Color lightGreen = const Color(0xFFE2F3E8);
   final Color accentGreen = const Color(0xFFA6E037);
   final Color greyColor = const Color(0xFF9BABAB);
 
@@ -30,16 +32,37 @@ class _HomeTabState extends State<HomeTab> {
 
   Future<void> _loadUserData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    setState(() {
-      userName = prefs.getString('username') ?? "User";
-      currentBalance = prefs.getInt('points') ?? 0;
-    });
-    _fetchActivities();
+    String? user = prefs.getString('username') ?? "User";
+    
+    try {
+      var profileRes = await http.get(Uri.parse('${ApiConstants.baseUrl}/profile/?username=$user'));
+      if (profileRes.statusCode == 200) {
+        var data = jsonDecode(profileRes.body);
+        setState(() {
+          String fn = data['full_name'] ?? "";
+          userName = fn.isNotEmpty ? fn : user;
+          currentBalance = data['points'] ?? 0;
+        });
+        await prefs.setInt('points', currentBalance);
+        await prefs.setString('full_name', data['full_name'] ?? "");
+      } else {
+        setState(() {
+          userName = prefs.getString('full_name') ?? user;
+          currentBalance = prefs.getInt('points') ?? 0;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        userName = prefs.getString('full_name') ?? user;
+        currentBalance = prefs.getInt('points') ?? 0;
+      });
+    }
+    _fetchActivities(user);
   }
 
-  Future<void> _fetchActivities() async {
+  Future<void> _fetchActivities(String user) async {
     try {
-      var response = await http.get(Uri.parse('http://10.0.2.2:8000/api/activities/?username=$userName'));
+      var response = await http.get(Uri.parse('${ApiConstants.baseUrl}/activities/?username=$user'));
       if (response.statusCode == 200) {
         setState(() => recentActivities = jsonDecode(response.body).take(2).toList());
       }
@@ -55,37 +78,43 @@ class _HomeTabState extends State<HomeTab> {
     return Icons.recycling;
   }
 
-  Future<void> _redeemPoints(String c) async {
+  Future<void> _scanQR(String c) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? token = prefs.getString('token');
     try {
       var response = await http.post(
-        Uri.parse('http://10.0.2.2:8000/api/redeem/'),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"username": userName, "code": c}),
+        Uri.parse('${ApiConstants.baseUrl}/user/scan-qr/'),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Token $token"
+        },
+        body: jsonEncode({"code": c}),
       );
 
       if (response.statusCode == 200) {
-        var data = jsonDecode(response.body);
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-        setState(() => currentBalance = data['total_points'] ?? currentBalance);
-        await prefs.setInt('points', currentBalance);
-        await prefs.setDouble('weight', (data['total_weight'] ?? 0.0).toDouble());
-        await prefs.setInt('deposits', data['deposits'] ?? 0);
-        _fetchActivities();
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Success! Added ${data['added_points']} points')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Scanned successfully! Bin is waiting.')));
+        }
       } else {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid code or used.')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('This QR code is invalid or wrong.')));
+        }
       }
-    } catch (e) {}
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('This QR code is invalid or wrong.')));
+      }
+    }
   }
 
-  void _showRedeemDialog() {
+  void _showScanDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Enter Bin Code', style: TextStyle(color: darkGreen)),
         content: TextField(
           controller: binCodeController,
-          decoration: InputDecoration(hintText: 'e.g. BIN-2026', filled: true, fillColor: lightGreen, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+          decoration: InputDecoration(hintText: 'e.g. 1234-5678', filled: true, fillColor: lightGreen, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: TextStyle(color: greyColor))),
@@ -93,7 +122,7 @@ class _HomeTabState extends State<HomeTab> {
             onPressed: () {
               Navigator.pop(context);
               if (binCodeController.text.isNotEmpty) {
-                _redeemPoints(binCodeController.text);
+                _scanQR(binCodeController.text);
                 binCodeController.clear();
               }
             },
@@ -109,19 +138,28 @@ class _HomeTabState extends State<HomeTab> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 30.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Welcome back,', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: darkGreen)),
+            Text('Welcome,', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: darkGreen)),
             const SizedBox(height: 8),
-            Text('$userName!', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: darkGreen)),
+            Text(userName, style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: darkGreen)),
             const SizedBox(height: 30),
             Row(
               children: [
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ScannerScreen())),
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const ScannerScreen()),
+                      );
+                      if (result != null && result.toString().isNotEmpty) {
+                        _scanQR(result.toString());
+                      }
+                    },
                     style: ElevatedButton.styleFrom(backgroundColor: accentGreen, padding: const EdgeInsets.symmetric(vertical: 18), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)), elevation: 0),
                     child: Text('Scanner', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkGreen)),
                   ),
@@ -129,7 +167,7 @@ class _HomeTabState extends State<HomeTab> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: _showRedeemDialog,
+                    onPressed: _showScanDialog,
                     style: ElevatedButton.styleFrom(backgroundColor: darkGreen, padding: const EdgeInsets.symmetric(vertical: 18), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)), elevation: 0),
                     child: const Text('Enter Code', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                   ),
@@ -150,7 +188,10 @@ class _HomeTabState extends State<HomeTab> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Recent Activity', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: darkGreen)),
-                Text('View All', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: accentGreen)),
+                GestureDetector(
+                  onTap: widget.onViewAll,
+                  child: Text('View All', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: accentGreen)),
+                ),
               ],
             ),
             const SizedBox(height: 16),

@@ -27,6 +27,8 @@ class AboutScreen extends StatelessWidget {
                         Text('EcoBin', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                         SizedBox(height: 2),
                         Text('Version 1.0.0', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        SizedBox(height: 4),
+                        Text('Developed by SAGED RYAN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0D6B58))),
                       ],
                     ),
                   ),

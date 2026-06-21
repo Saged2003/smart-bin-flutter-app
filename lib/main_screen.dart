@@ -17,18 +17,24 @@ class _MainScreenState extends State<MainScreen> {
   final Color g = const Color(0xFF006958);
   final Color x = const Color(0xFF9BABAB);
 
-  final List<Widget> _p = [
-    const HomeTab(),
-    const ActivityScreen(),
-    const RewardsScreen(),
-    const BinsScreen(),
-    const ProfileScreen(),
-  ];
+  void _goToActivity() {
+    setState(() {
+      _i = 1;
+    });
+  }
 
   @override
   Widget build(BuildContext c) {
+    final List<Widget> p = [
+      HomeTab(onViewAll: _goToActivity),
+      const ActivityScreen(),
+      const RewardsScreen(),
+      const BinsScreen(),
+      const ProfileScreen(),
+    ];
+
     return Scaffold(
-      body: _p[_i],
+      body: p[_i],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
