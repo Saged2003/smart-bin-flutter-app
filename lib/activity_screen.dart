@@ -1,66 +1,51 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
-import 'api_constants.dart';
+import 'package:provider/provider.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:shimmer/shimmer.dart';
+import 'providers/user_provider.dart';
 
 class ActivityScreen extends StatefulWidget {
   const ActivityScreen({super.key});
-
   @override
   State<ActivityScreen> createState() => _ActivityScreenState();
 }
 
 class _ActivityScreenState extends State<ActivityScreen> {
-  Color g = const Color(0xFF0D6B58);
-  Color h = const Color(0xFFE2F3E8);
-
-  int totalPoints = 0;
-  double totalWeight = 0.0;
-  List<dynamic> activities = [];
-  bool isLoading = true;
+  final Color primaryColor = const Color(0xFF0D6B58);
+  final Color secondaryColor = const Color(0xFFE2F3E8);
 
   @override
   void initState() {
     super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String userName = prefs.getString('username') ?? '';
-    setState(() {
-      totalPoints = prefs.getInt('points') ?? 0;
-      totalWeight = prefs.getDouble('weight') ?? 0.0;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<UserProvider>().fetchActivities();
     });
-
-    try {
-      var response = await http.get(Uri.parse('${ApiConstants.baseUrl}/activities/?username=$userName'));
-      if (response.statusCode == 200) {
-        setState(() {
-          activities = jsonDecode(response.body);
-          isLoading = false;
-        });
-      } else {
-        setState(() => isLoading = false);
-      }
-    } catch (e) {
-      setState(() => isLoading = false);
-    }
   }
-
   String _getImage(String type) {
-    String t = type.toLowerCase();
-    if(t.contains('plastic')) return 'lib/assets/images/plastic_bottle.png';
-    if(t.contains('aluminum')) return 'lib/assets/images/aluminum_can.png';
-    if(t.contains('glass')) return 'lib/assets/images/glass_bottle.png';
-    if(t.contains('cardboard')) return 'lib/assets/images/cardboard_box.png';
-    if(t.contains('newspaper')) return 'lib/assets/images/newspaper.png';
+    String typeString = type.toLowerCase();
+    if(typeString.contains('plastic')) return 'lib/assets/images/plastic_bottle.png';
+    if(typeString.contains('aluminum')) return 'lib/assets/images/aluminum_can.png';
+    if(typeString.contains('glass')) return 'lib/assets/images/glass_bottle.png';
+    if(typeString.contains('cardboard')) return 'lib/assets/images/cardboard_box.png';
+    if(typeString.contains('newspaper')) return 'lib/assets/images/newspaper.png';
     return 'lib/assets/images/plastic_bottle.png';
   }
-
+  Widget _buildShimmerEffect() {
+    return ListView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 5,
+      itemBuilder: (context, index) {
+        return Shimmer.fromColors(
+          baseColor: Colors.grey.shade300,
+          highlightColor: Colors.grey.shade100,
+          child: Container(margin: const EdgeInsets.only(bottom: 12), height: 80, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20))),
+        );
+      },
+    );
+  }
   @override
-  Widget build(BuildContext c) {
+  Widget build(BuildContext context) {
+    final userProvider = context.watch<UserProvider>();
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -69,32 +54,29 @@ class _ActivityScreenState extends State<ActivityScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Activity History',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: g),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('activity_history'.tr(), style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: primaryColor)),
+                  if (userProvider.isOffline) const Icon(Icons.cloud_off, color: Colors.orange),
+                ],
               ),
               const SizedBox(height: 4),
-              const Text(
-                'Track your recycling journey',
-                style: TextStyle(color: Colors.grey, fontSize: 13),
-              ),
+              Text('track_journey'.tr(), style: const TextStyle(color: Colors.grey, fontSize: 14)),
               const SizedBox(height: 24),
               Row(
                 children: [
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: g,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(color: primaryColor, borderRadius: BorderRadius.circular(20)),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.trending_up, color: Colors.white, size: 28),
+                          const Icon(Icons.trending_up, color: Colors.white, size: 30),
                           const SizedBox(height: 12),
-                          Text('$totalPoints', style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w500)),
-                          const Text('Total Points Earned', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                          Text('${userProvider.currentBalance}', style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
+                          Text('total_points_earned'.tr(), style: const TextStyle(color: Colors.white70, fontSize: 13)),
                         ],
                       ),
                     ),
@@ -102,18 +84,15 @@ class _ActivityScreenState extends State<ActivityScreen> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: g,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(color: primaryColor, borderRadius: BorderRadius.circular(20)),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.inventory_2_outlined, color: Colors.white, size: 28),
+                          const Icon(Icons.inventory_2_outlined, color: Colors.white, size: 30),
                           const SizedBox(height: 12),
-                          Text('${totalWeight.toStringAsFixed(1)} kg', style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w500)),
-                          const Text('Total Weight', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                          Text('${userProvider.totalWeight.toStringAsFixed(1)} kg', style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+                          Text('total_weight'.tr(), style: const TextStyle(color: Colors.white70, fontSize: 13)),
                         ],
                       ),
                     ),
@@ -121,54 +100,64 @@ class _ActivityScreenState extends State<ActivityScreen> {
                 ],
               ),
               const SizedBox(height: 24),
-              Text(
-                'All Deposits',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: g),
-              ),
+              Text('all_deposits'.tr(), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryColor)),
               const SizedBox(height: 16),
               Expanded(
-                child: isLoading
-                    ? Center(child: CircularProgressIndicator(color: g))
-                    : activities.isEmpty
-                    ? const Center(child: Text('No activities yet', style: TextStyle(color: Colors.grey)))
-                    : ListView.builder(
-                  itemCount: activities.length,
-                  itemBuilder: (c, i) {
-                    var x = activities[i];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: h,
-                        borderRadius: BorderRadius.circular(24),
+                child: userProvider.isLoading && userProvider.recentActivities.isEmpty
+                    ? _buildShimmerEffect()
+                    : userProvider.recentActivities.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.history_toggle_off, size: 60, color: Colors.grey.shade300),
+                            const SizedBox(height: 16),
+                            Text('no_activities_yet'.tr(), style: const TextStyle(color: Colors.grey)),
+                            if (userProvider.isOffline)
+                              TextButton(onPressed: () => userProvider.fetchActivities(), child: Text('try_again'.tr(), style: TextStyle(color: primaryColor))),
+                          ],
+                        ),
+                      )
+                    : RefreshIndicator(
+                        color: primaryColor,
+                        onRefresh: () => userProvider.fetchActivities(),
+                        child: ListView.builder(
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: userProvider.recentActivities.length,
+                          itemBuilder: (context, index) {
+                            var activity = userProvider.recentActivities[index];
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              decoration: BoxDecoration(color: secondaryColor, borderRadius: BorderRadius.circular(20)),
+                              child: Row(
+                                children: [
+                                  Image.asset(_getImage(activity['t'] ?? ''), width: 40, height: 40),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(activity['t'].toString().toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 15)),
+                                        const SizedBox(height: 4),
+                                        Text(activity['date'] != null ? activity['date'].toString().substring(0, 10) : '', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                                      ],
+                                    ),
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text('+${activity['points']} ${'pts'.tr()}', style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 15)),
+                                      const SizedBox(height: 4),
+                                      Text('${activity['weight']} kg', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
                       ),
-                      child: Row(
-                        children: [
-                          Image.asset(_getImage(x['t'] ?? ''), width: 35, height: 35),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(x['t'].toString().toUpperCase(), style: TextStyle(fontWeight: FontWeight.w600, color: g, fontSize: 14)),
-                                const SizedBox(height: 4),
-                                Text(x['q'] != null ? x['q'].toString().substring(0, 10) : '', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                              ],
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text('+${x['v']} pts', style: TextStyle(fontWeight: FontWeight.w600, color: g, fontSize: 14)),
-                              const SizedBox(height: 4),
-                              Text('${x['w']} kg', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
               ),
             ],
           ),

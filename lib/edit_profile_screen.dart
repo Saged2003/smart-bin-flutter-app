@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http_parser/http_parser.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'api_constants.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -38,6 +39,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
+    // هنا الخانات بتتملي بالبيانات الحالية تلقائياً
     nameController = TextEditingController(text: widget.currentName);
     emailController = TextEditingController(text: widget.currentEmail);
     phoneController = TextEditingController(text: widget.currentPhone);
@@ -65,10 +67,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       request.headers.addAll({"Authorization": "Token $token"});
 
       request.fields['username'] = username ?? '';
-      request.fields['full_name'] = nameController.text;
-      request.fields['email'] = emailController.text;
-      request.fields['phone'] = phoneController.text;
-      request.fields['address'] = addressController.text;
+      
+      // نأخذ البيانات الموجودة حالياً داخل الخانات سواء عدلتها أو سبتها زي ما هي
+      request.fields['full_name'] = nameController.text.trim();
+      request.fields['email'] = emailController.text.trim();
+      request.fields['phone'] = phoneController.text.trim();
+      request.fields['address'] = addressController.text.trim();
 
       if (_selectedImage != null) {
         request.files.add(await http.MultipartFile.fromPath(
@@ -78,24 +82,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ));
       }
 
-      var response = await request.send();
+      var response = await request.send().timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         var respStr = await response.stream.bytesToString();
         var data = jsonDecode(respStr);
-        await prefs.setString('full_name', nameController.text);
+        await prefs.setString('full_name', nameController.text.trim());
+        await prefs.setString('phone', phoneController.text.trim());
+        await prefs.setString('address', addressController.text.trim());
+        
         if (data['profile_picture'] != null) {
           await prefs.setString('profile_picture', data['profile_picture']);
         }
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Changes Saved!')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('changes_saved'.tr()), backgroundColor: Colors.green));
           Navigator.pop(context);
         }
       } else {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Update failed')));
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('update_failed'.tr()), backgroundColor: Colors.red));
       }
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('network_error'.tr()), backgroundColor: Colors.orange));
     } finally {
       setState(() => _isLoading = false);
     }
@@ -103,7 +110,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    Color g = const Color(0xFF0D6B58);
+    Color primaryColor = const Color(0xFF0D6B58);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -148,27 +155,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(24)),
                 child: Column(
                   children: [
-                    _f(Icons.person_outline, 'Full Name', nameController),
+                    _buildTextField(Icons.person_outline, 'full_name'.tr(), nameController),
                     const SizedBox(height: 16),
-                    _f(Icons.mail_outline, 'Email Address', emailController),
+                    _buildTextField(Icons.mail_outline, 'email_address'.tr(), emailController),
                     const SizedBox(height: 16),
-                    _f(Icons.phone_outlined, 'Phone Number', phoneController),
+                    _buildTextField(Icons.phone_outlined, 'phone_number'.tr(), phoneController),
                     const SizedBox(height: 16),
-                    _f(Icons.location_on_outlined, 'Address', addressController),
+                    _buildTextField(Icons.location_on_outlined, 'address'.tr(), addressController),
                   ],
                 ),
               ),
               const SizedBox(height: 32),
               _isLoading
-                  ? CircularProgressIndicator(color: g)
+                  ? CircularProgressIndicator(color: primaryColor)
                   : Column(
                       children: [
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
                             onPressed: _updateProfile,
-                            style: ElevatedButton.styleFrom(backgroundColor: g, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
-                            child: const Text('Save Changes', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(backgroundColor: primaryColor, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
+                            child: Text('save_changes'.tr(), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -177,7 +184,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           child: ElevatedButton(
                             onPressed: () => Navigator.pop(context),
                             style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade100, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
-                            child: const Text('Cancel', style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.bold)),
+                            child: Text('cancel'.tr(), style: const TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ],
@@ -189,22 +196,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _f(IconData i, String l, TextEditingController c) {
+  Widget _buildTextField(IconData icon, String label, TextEditingController controller) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(i, size: 16, color: Colors.grey.shade700),
+            Icon(icon, size: 16, color: Colors.grey.shade700),
             const SizedBox(width: 8),
-            Text(l, style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
+            Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
           ],
         ),
         const SizedBox(height: 8),
         SizedBox(
           height: 45,
           child: TextField(
-            controller: c,
+            controller: controller,
             decoration: InputDecoration(
               filled: true,
               fillColor: Colors.white,

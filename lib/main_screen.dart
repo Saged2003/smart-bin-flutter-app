@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'home_tab.dart';
 import 'activity_screen.dart';
 import 'rewards_screen.dart';
@@ -13,19 +14,19 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _i = 0;
-  final Color g = const Color(0xFF006958);
-  final Color x = const Color(0xFF9BABAB);
+  int _currentIndex = 0;
+  final Color primaryColor = const Color(0xFF006958);
+  final Color greyColor = const Color(0xFF9BABAB);
 
   void _goToActivity() {
     setState(() {
-      _i = 1;
+      _currentIndex = 1;
     });
   }
 
   @override
-  Widget build(BuildContext c) {
-    final List<Widget> p = [
+  Widget build(BuildContext context) {
+    final List<Widget> pages = [
       HomeTab(onViewAll: _goToActivity),
       const ActivityScreen(),
       const RewardsScreen(),
@@ -34,28 +35,28 @@ class _MainScreenState extends State<MainScreen> {
     ];
 
     return Scaffold(
-      body: p[_i],
+      body: pages[_currentIndex],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border(top: BorderSide(color: x.withOpacity(0.3), width: 1)),
+          border: Border(top: BorderSide(color: greyColor.withOpacity(0.3), width: 1)),
         ),
         child: BottomNavigationBar(
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.white,
           elevation: 0,
-          selectedItemColor: g,
-          unselectedItemColor: x,
+          selectedItemColor: primaryColor,
+          unselectedItemColor: greyColor,
           selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
-          currentIndex: _i,
-          onTap: (n) => setState(() => _i = n),
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.show_chart), label: 'Activity'),
-            BottomNavigationBarItem(icon: Icon(Icons.card_giftcard), label: 'Rewards'),
-            BottomNavigationBarItem(icon: Icon(Icons.location_on_outlined), activeIcon: Icon(Icons.location_on), label: 'Bins'),
-            BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Profile'),
+          currentIndex: _currentIndex,
+          onTap: (index) => setState(() => _currentIndex = index),
+          items: [
+            BottomNavigationBarItem(icon: const Icon(Icons.home_outlined), activeIcon: const Icon(Icons.home), label: 'home'.tr()),
+            BottomNavigationBarItem(icon: const Icon(Icons.show_chart), label: 'activity'.tr()),
+            BottomNavigationBarItem(icon: const Icon(Icons.card_giftcard), label: 'rewards'.tr()),
+            BottomNavigationBarItem(icon: const Icon(Icons.location_on_outlined), activeIcon: const Icon(Icons.location_on), label: 'bins'.tr()),
+            BottomNavigationBarItem(icon: const Icon(Icons.person_outline), activeIcon: const Icon(Icons.person), label: 'profile'.tr()),
           ],
         ),
       ),

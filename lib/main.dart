@@ -1,28 +1,50 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'login_screen.dart';
-import 'main_screen.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'splash_screen.dart';
+import 'providers/auth_provider.dart';
+import 'providers/user_provider.dart';
+import 'providers/bins_provider.dart';
+import 'providers/rewards_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  SharedPreferences s = await SharedPreferences.getInstance();
-  String? t = s.getString('token');
-
-  runApp(MyApp(l: t != null));
+  await EasyLocalization.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+  runApp(
+    EasyLocalization(
+      supportedLocales: const [Locale('en'), Locale('ar')],
+      path: 'lib/assets/translations',
+      fallbackLocale: const Locale('en'),
+      child: MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => AuthProvider()),
+          ChangeNotifierProvider(create: (_) => UserProvider()),
+          ChangeNotifierProvider(create: (_) => BinsProvider()),
+          ChangeNotifierProvider(create: (_) => RewardsProvider()),
+        ],
+        child: const MyApp(),
+      ),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
-  final bool l;
-
-  const MyApp({super.key, required this.l});
-
+  const MyApp({super.key});
   @override
-  Widget build(BuildContext c) {
+  Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Smart Waste Bin',
+      localizationsDelegates: context.localizationDelegates,
+      supportedLocales: context.supportedLocales,
+      locale: context.locale,
       theme: ThemeData(fontFamily: 'Arial'),
-      home: l ? const MainScreen() : const LoginScreen(),
+      home: const SplashScreen(),
     );
   }
 }

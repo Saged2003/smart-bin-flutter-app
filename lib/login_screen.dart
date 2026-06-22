@@ -1,14 +1,13 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import 'api_constants.dart';
-import 'main_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'providers/auth_provider.dart';
+import 'auth_success_screen.dart';
 import 'signup_screen.dart';
+import 'animated_button.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
-
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
@@ -16,95 +15,41 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-
   bool _isPasswordHidden = true;
-  bool _isLoading = false;
-
   final Color darkGreen = const Color(0xFF006958);
   final Color lightGreen = const Color(0xFFD4F0DA);
   final Color accentGreen = const Color(0xFFA6E037);
   final Color hintColor = const Color(0xFFB8C7C3);
-
   @override
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
     super.dispose();
   }
-
   bool _validateInput() {
     if (emailController.text.trim().isEmpty || !emailController.text.contains('@')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid email address')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('invalid_email'.tr())));
       return false;
     }
     if (passwordController.text.trim().length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password must be at least 6 characters long')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('short_password'.tr())));
       return false;
     }
     return true;
   }
-
-  Future<void> _login() async {
+  Future<void> _handleLogin() async {
     if (!_validateInput()) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      String username = emailController.text.split('@')[0];
-      var response = await http.post(
-        Uri.parse('${ApiConstants.baseUrl}/login/'),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "username": username,
-          "password": passwordController.text
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        var data = jsonDecode(response.body);
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', data['token']);
-        await prefs.setString('username', username);
-        await prefs.setInt('points', data['points'] ?? 0);
-        await prefs.setBool('is_employee', data['is_employee'] ?? false);
-        await prefs.setBool('is_approved_employee', data['is_approved_employee'] ?? false);
-
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const MainScreen()),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invalid credentials. Please try again.')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error connecting to server: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    final authProvider = context.read<AuthProvider>();
+    bool success = await authProvider.login(emailController.text.trim(), passwordController.text);
+    if (success && mounted) {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AuthSuccessScreen()));
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('login_failed'.tr())));
     }
   }
-
   @override
   Widget build(BuildContext context) {
+    final isLoading = context.watch<AuthProvider>().isLoading;
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -114,125 +59,60 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 50),
-              Text(
-                'Welcome',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  color: darkGreen,
-                ),
-              ),
+              Text('welcome'.tr(), textAlign: TextAlign.center, style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: darkGreen)),
               const SizedBox(height: 60),
-              Text(
-                'Email',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: darkGreen,
-                ),
-              ),
+              Text('email'.tr(), style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: darkGreen)),
               const SizedBox(height: 8),
               TextField(
                 controller: emailController,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
-                  hintText: 'Enter Email',
+                  hintText: 'enter_email'.tr(),
                   hintStyle: TextStyle(color: hintColor, fontWeight: FontWeight.w500),
                   filled: true,
                   fillColor: lightGreen,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
               ),
               const SizedBox(height: 24),
-              Text(
-                'Password',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: darkGreen,
-                ),
-              ),
+              Text('password'.tr(), style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: darkGreen)),
               const SizedBox(height: 8),
               TextField(
                 controller: passwordController,
                 obscureText: _isPasswordHidden,
                 decoration: InputDecoration(
-                  hintText: 'Enter Password',
+                  hintText: 'enter_password'.tr(),
                   hintStyle: TextStyle(color: hintColor, fontWeight: FontWeight.w500),
                   filled: true,
                   fillColor: lightGreen,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   suffixIcon: IconButton(
-                    icon: Icon(
-                      _isPasswordHidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                      color: darkGreen,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _isPasswordHidden = !_isPasswordHidden;
-                      });
-                    },
+                    icon: Icon(_isPasswordHidden ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: darkGreen),
+                    onPressed: () => setState(() => _isPasswordHidden = !_isPasswordHidden),
                   ),
                 ),
               ),
               const SizedBox(height: 50),
-              _isLoading
+              isLoading
                   ? Center(child: CircularProgressIndicator(color: darkGreen))
-                  : ElevatedButton(
-                      onPressed: _login,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: darkGreen,
+                  : AnimatedButton(
+                      onTap: _handleLogin,
+                      child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Log in',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                        decoration: BoxDecoration(color: darkGreen, borderRadius: BorderRadius.circular(25)),
+                        child: Center(child: Text('login'.tr(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))),
                       ),
                     ),
               const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    'Don\'t have an account? ',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: darkGreen,
-                    ),
-                  ),
+                  Text('no_account'.tr(), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: darkGreen)),
                   GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const SignUpScreen()),
-                      );
-                    },
-                    child: Text(
-                      'Sign up',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: accentGreen,
-                      ),
-                    ),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SignUpScreen())),
+                    child: Text('signup'.tr(), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: accentGreen)),
                   ),
                 ],
               ),

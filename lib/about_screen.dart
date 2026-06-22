@@ -1,34 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
-
   @override
   Widget build(BuildContext context) {
-    Color g = const Color(0xFF0D6B58);
-    Color h = const Color(0xFFE2F3E8);
+    Color primaryColor = const Color(0xFF0D6B58);
+    Color secondaryColor = const Color(0xFFE2F3E8);
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.all(24.0),
           child: Column(
             children: [
               Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, color: Colors.black87, size: 20),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const Expanded(
+                  IconButton(icon: const Icon(Icons.arrow_back_ios, color: Colors.black87, size: 20), onPressed: () => Navigator.pop(context)),
+                  Expanded(
                     child: Column(
                       children: [
-                        Text('EcoBin', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                        SizedBox(height: 2),
-                        Text('Version 1.0.0', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                        SizedBox(height: 4),
-                        Text('Developed by SAGED RYAN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0D6B58))),
+                        Text('ecobin_app'.tr(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 2),
+                        Text('version'.tr(), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                        const SizedBox(height: 4),
+                        Text('developer_team'.tr(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: primaryColor)),
                       ],
                     ),
                   ),
@@ -38,48 +36,35 @@ class AboutScreen extends StatelessWidget {
               const SizedBox(height: 32),
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(20),
-                ),
+                decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(20)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(color: h, shape: BoxShape.circle),
-                          child: Icon(Icons.track_changes, color: g, size: 24),
-                        ),
+                        Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: secondaryColor, shape: BoxShape.circle), child: Icon(Icons.track_changes, color: primaryColor, size: 24)),
                         const SizedBox(width: 16),
-                        const Text('Our Mission', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        Text('our_mission'.tr(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'EcoBin is revolutionizing waste management by making recycling rewarding and accessible. We believe that every small action counts in building a sustainable future for our planet.',
-                      style: TextStyle(height: 1.6, color: Colors.black87, fontSize: 13),
-                    ),
+                    Text('mission_desc'.tr(), style: const TextStyle(height: 1.6, color: Colors.black87, fontSize: 13)),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(20),
-                ),
+                decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(20)),
                 child: Column(
                   children: [
-                    const Text('How It Works', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text('how_it_works'.tr(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 24),
-                    _s(h, g, '1', 'Create Your Account', 'Sign up and get your unique QR code instantly'),
+                    _buildStep(secondaryColor, primaryColor, '1', 'create_account'.tr(), 'create_account_desc'.tr()),
                     const SizedBox(height: 24),
-                    _s(h, g, '2', 'Find a Smart Bin', 'Locate nearby EcoBins using our bin status map'),
+                    _buildStep(secondaryColor, primaryColor, '2', 'find_smart_bin'.tr(), 'find_smart_bin_desc'.tr()),
                     const SizedBox(height: 24),
-                    _s(h, g, '3', 'Scan & Deposit', 'Scan your QR code and deposit your recyclables'),
+                    _buildStep(secondaryColor, primaryColor, '3', 'scan_deposit'.tr(), 'scan_deposit_desc'.tr()),
                   ],
                 ),
               ),
@@ -89,24 +74,19 @@ class AboutScreen extends StatelessWidget {
       ),
     );
   }
-
-  Widget _s(Color bg, Color tc, String n, String t, String d) {
+  Widget _buildStep(Color backgroundColor, Color textColor, String stepNumber, String title, String description) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CircleAvatar(
-          backgroundColor: bg,
-          radius: 18,
-          child: Text(n, style: TextStyle(color: tc, fontWeight: FontWeight.bold, fontSize: 16)),
-        ),
+        CircleAvatar(backgroundColor: backgroundColor, radius: 18, child: Text(stepNumber, style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 16))),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(t, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               const SizedBox(height: 6),
-              Text(d, style: const TextStyle(color: Colors.black54, fontSize: 12, height: 1.4)),
+              Text(description, style: const TextStyle(color: Colors.black54, fontSize: 12, height: 1.4)),
             ],
           ),
         ),
